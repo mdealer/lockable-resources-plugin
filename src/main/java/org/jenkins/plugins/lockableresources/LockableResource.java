@@ -320,7 +320,7 @@ public class LockableResource extends AbstractDescribableImpl<LockableResource>
 
   @Exported
   public String getBuildName() {
-    if (getBuild() != null) return getBuild().getFullDisplayName();
+    if (getBuild() != null) return "<a href=\"" + Jenkins.get().getUrlChildPrefix() + getBuild().getUrl() + "\">" + getBuild().getFullDisplayName() + "</a>";
     else return null;
   }
 

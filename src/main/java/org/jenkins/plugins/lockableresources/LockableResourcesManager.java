@@ -40,6 +40,8 @@ import org.jenkins.plugins.lockableresources.queue.LockableResourcesCandidatesSt
 import org.jenkins.plugins.lockableresources.queue.LockableResourcesStruct;
 import org.jenkins.plugins.lockableresources.queue.QueuedContextStruct;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript;
+import org.jenkinsci.plugins.workflow.flow.FlowDurabilityHint;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -54,6 +56,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
 
   private List<LockableResource> resources;
   private transient Cache<Long,List<LockableResource>> cachedCandidates = CacheBuilder.newBuilder().expireAfterWrite(5, TimeUnit.MINUTES).build();
+  private transient long lastSaveMs;
 
   /**
    * Only used when this lockable resource is tried to be locked by {@link LockStep}, otherwise
@@ -441,7 +444,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
         }
         LockStepExecution.proceed(resourceNames, context, logmessage, variable, inversePrecedence);
       }
-      save();
+      save(context);
     }
     return !needToWait;
   }
@@ -491,13 +494,32 @@ public class LockableResourcesManager extends GlobalConfiguration {
       }
     }
 
-    this.unlockNames(resourceNamesToUnLock, build, inversePrecedence);
+    this.unlockNames(resourceNamesToUnLock, build, inversePrecedence, null);
+  }
+
+  boolean isOptimized(StepContext c) {
+    if (c != null) {
+      try {
+        FlowNode fn = c.get(FlowNode.class);
+        if (fn == null) {
+          LOGGER.log(Level.WARNING, "Failed to determine durability hint; no FlowNode.");
+        }
+        if (fn != null && fn.getExecution().getDurabilityHint() == FlowDurabilityHint.PERFORMANCE_OPTIMIZED)
+        {
+          return true;
+        }
+      } catch (Exception e) {
+        LOGGER.log(Level.WARNING, "Failed to determine durability hint due to an exception.", e);
+      }
+    }
+    return false;
   }
 
   public synchronized void unlockNames(
     @Nullable List<String> resourceNamesToUnLock,
     @Nullable Run<?, ?> build,
-    boolean inversePrecedence) {
+    boolean inversePrecedence,
+    StepContext context) {
     // make sure there is a list of resource names to unlock
     if (resourceNamesToUnLock == null || resourceNamesToUnLock.isEmpty()) {
       return;
@@ -506,17 +528,26 @@ public class LockableResourcesManager extends GlobalConfiguration {
     // process as many contexts as possible
     List<String> remainingResourceNamesToUnLock = new ArrayList<>(resourceNamesToUnLock);
 
+    int optimizedCount = isOptimized(context) ? 0 : -1;
     QueuedContextStruct nextContext = null;
     while (!remainingResourceNamesToUnLock.isEmpty()) {
       // check if there are resources which can be unlocked (and shall not be unlocked)
-      nextContext =
-        this.getNextQueuedContext(remainingResourceNamesToUnLock, inversePrecedence, nextContext);
-
+      nextContext = this.getNextQueuedContext(remainingResourceNamesToUnLock, inversePrecedence, nextContext);
       // no context is queued which can be started once these resources are free'd.
       if (nextContext == null) {
         this.freeResources(remainingResourceNamesToUnLock, build);
-        save();
+        if (optimizedCount == -1) {
+          save();
+        }
         return;
+      } 
+      
+      if (optimizedCount != -1) {
+        if (isOptimized(nextContext.getContext())) {
+          optimizedCount++;
+        } else {
+          optimizedCount = -1;
+        }
       }
 
       List<LockableResource> requiredResourceForNextContext =
@@ -564,7 +595,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
                 + "Level.FINE for debugging purposes.");
             LOGGER.log(
               Level.FINE, "Cannot get the Run object from the context to proceed with lock", e);
-            unlockNames(remainingResourceNamesToUnLock, build, inversePrecedence);
+            unlockNames(remainingResourceNamesToUnLock, build, inversePrecedence, null);
             return;
           }
         }
@@ -598,7 +629,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
           inversePrecedence);
       }
     }
-    save();
+    save(context);
   }
 
   /** @see #getNextQueuedContext(List, List, boolean, QueuedContextStruct) */
@@ -669,14 +700,18 @@ public class LockableResourcesManager extends GlobalConfiguration {
   }
 
   /** Creates the resource if it does not exist. */
-  public synchronized boolean createResource(String name) {
-    if (name != null) {
+  public boolean createResource(String name) {
+    return createResource(name, null);
+  }
+
+  public synchronized boolean createResource(String name, StepContext context) {
+      if (name != null) {
       LockableResource existent = fromName(name);
       if (existent == null) {
         LockableResource resource = new LockableResource(name);
         resource.setEphemeral(true);
         getResources().add(resource);
-        save();
+        save(context);
         return true;
       }
     }
@@ -690,7 +725,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
         LockableResource resource = new LockableResource(name);
         resource.setLabels(label);
         getResources().add(resource);
-        save();
+        save(null);
         return true;
       }
     }
@@ -713,7 +748,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
     for (LockableResource r : resources) {
       r.reserve(userName);
     }
-    save();
+    save(null);
     return true;
   }
 
@@ -733,7 +768,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
       r.setStolen();
     }
     unlock(resources, null, false);
-    save();
+    save(null);
     return true;
   }
 
@@ -752,7 +787,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
       }
       r.setReservedBy(userName);
     }
-    save();
+    save(null);
   }
 
   private void unreserveResources(@NonNull List<LockableResource> resources) {
@@ -760,7 +795,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
       uncacheIfFreeing(l, false, true);
       l.unReserve();
     }
-    save();
+    save(null);
   }
 
   public synchronized void unreserve(List<LockableResource> resources) {
@@ -856,7 +891,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
         nextContext.getVariableName(),
         false);
     }
-    save();
+    save(null);
   }
 
   @NonNull
@@ -1153,7 +1188,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
 
     this.queuedContexts.add(
       new QueuedContextStruct(context, requiredResources, resourceDescription, variableName));
-    save();
+    save(context);
   }
 
   public synchronized boolean unqueueContext(StepContext context) {
@@ -1161,7 +1196,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
       iter.hasNext(); ) {
       if (iter.next().getContext() == context) {
         iter.remove();
-        save();
+        save(context);
         return true;
       }
     }
@@ -1173,11 +1208,19 @@ public class LockableResourcesManager extends GlobalConfiguration {
       Jenkins.get().getDescriptorOrDie(LockableResourcesManager.class);
   }
 
+  public void save(StepContext c) {
+    boolean needsSaving = !isOptimized(c);
+    if (needsSaving) { // && (System.currentTimeMillis() - lastSaveMs) > 60000) {
+      save();
+    }
+  }
+
   @Override
   public synchronized void save() {
     if (BulkChange.contains(this)) return;
-
     try {
+      LOGGER.log(Level.FINE, "Saving lockable resources. Previous save was " + (System.currentTimeMillis() - lastSaveMs) + " ms ago." );
+      lastSaveMs = System.currentTimeMillis();
       getConfigFile().write(this);
     } catch (IOException e) {
       LOGGER.log(Level.WARNING, "Failed to save " + getConfigFile(), e);

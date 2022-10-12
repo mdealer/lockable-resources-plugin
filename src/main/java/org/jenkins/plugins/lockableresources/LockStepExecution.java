@@ -39,7 +39,7 @@ public class LockStepExecution extends AbstractStepExecutionImpl implements Seri
   @Override
   public boolean start() throws Exception {
     step.validate();
-
+    
     getContext().get(FlowNode.class).addAction(new PauseAction("Lock"));
     PrintStream logger = getContext().get(TaskListener.class).getLogger();
     logger.println("Trying to acquire lock on [" + step + "]");
@@ -49,7 +49,7 @@ public class LockStepExecution extends AbstractStepExecutionImpl implements Seri
     for (LockStepResource resource : step.getResources()) {
       List<String> resources = new ArrayList<>();
       if (resource.resource != null) {
-        if (LockableResourcesManager.get().createResource(resource.resource)) {
+        if (LockableResourcesManager.get().createResource(resource.resource, getContext())) {
           logger.println("Resource [" + resource + "] did not exist. Created.");
         }
         resources.add(resource.resource);
@@ -172,7 +172,7 @@ public class LockStepExecution extends AbstractStepExecutionImpl implements Seri
     @Override
     protected void finished(StepContext context) throws Exception {
       LockableResourcesManager.get()
-        .unlockNames(this.resourceNames, context.get(Run.class), this.inversePrecedence);
+        .unlockNames(this.resourceNames, context.get(Run.class), this.inversePrecedence, context);
       context
         .get(TaskListener.class)
         .getLogger()
