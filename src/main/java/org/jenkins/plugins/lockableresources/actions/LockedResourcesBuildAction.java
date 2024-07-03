@@ -67,7 +67,7 @@ public class LockedResourcesBuildAction implements Action {
      */
     @Restricted(NoExternalUse.class)
     public static void updateAction(Run<?, ?> build, List<String> resourceNames) {
-        LockedResourcesBuildAction action = build.getAction(LockedResourcesBuildAction.class);
+        /*LockedResourcesBuildAction action = build.getAction(LockedResourcesBuildAction.class);
 
         if (action == null) {
             List<ResourcePOJO> resPojos = new ArrayList<>();
@@ -83,7 +83,7 @@ public class LockedResourcesBuildAction implements Action {
                 // probably a ephemeral resource has been deleted
                 action.add(new ResourcePOJO(name, ""));
             }
-        }
+        }*/
     }
 
     // -------------------------------------------------------------------------
@@ -92,13 +92,13 @@ public class LockedResourcesBuildAction implements Action {
     // since the list *this.lockedResources* might be updated from multiple (parallel)
     // stages, this operation need to be synchronized
     private synchronized void add(ResourcePOJO r) {
-        for (ResourcePOJO pojo : this.lockedResources) {
+        /*for (ResourcePOJO pojo : this.lockedResources) {
             if (pojo.getName().equals(r.getName())) {
                 pojo.inc();
                 return;
             }
         }
-        this.lockedResources.add(r);
+        this.lockedResources.add(r);*/
     }
 
     // -------------------------------------------------------------------------
