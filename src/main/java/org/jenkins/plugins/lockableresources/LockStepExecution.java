@@ -222,7 +222,7 @@ public class LockStepExecution extends AbstractStepExecutionImpl implements Seri
 
         @Override
         protected void finished(StepContext context) throws Exception {
-            LockableResourcesManager.get().unlockNames(this.resourceNames, context.get(Run.class));
+            LockableResourcesManager.get().unlockNames(this.resourceNames, context.get(Run.class), context);
             LockableResourcesManager.printLogs(
                     "Lock released on resource [" + resourceDescription + "]",
                     Level.FINE,
