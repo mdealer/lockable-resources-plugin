@@ -19,7 +19,7 @@ import hudson.model.TaskListener;
 import hudson.model.listeners.RunListener;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
+import java.util.logging.Level;import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.jenkins.plugins.lockableresources.LockableResource;
 import org.jenkins.plugins.lockableresources.LockableResourceProperty;
@@ -57,8 +57,10 @@ public class LockRunListener extends RunListener<Run<?, ?>> {
 
                     if (lrm.lock(required, build)) {
                         build.addAction(LockedResourcesBuildAction.fromResources(required));
-                        listener.getLogger().printf("%s acquired lock on %s%n", LOG_PREFIX, required);
-                        LOGGER.info(build.getFullDisplayName() + " acquired lock on " + required);
+                        if (LOGGER.isLoggable(Level.INFO)) {
+                          listener.getLogger().printf("%s acquired lock on %s%n", LOG_PREFIX, required);
+                          LOGGER.info(build.getFullDisplayName() + " acquired lock on " + required);
+                        }
                         if (resources.requiredVar != null) {
                             List<StringParameterValue> envsToSet = new ArrayList<>();
 
@@ -84,8 +86,10 @@ public class LockRunListener extends RunListener<Run<?, ?>> {
                             build.addAction(new ResourceVariableNameAction(envsToSet));
                         }
                     } else {
-                        listener.getLogger().printf("%s failed to lock %s%n", LOG_PREFIX, required);
-                        LOGGER.warning(build.getFullDisplayName() + " failed to lock " + required);
+                        if (LOGGER.isLoggable(Level.INFO)) {
+                          listener.getLogger().printf("%s failed to lock %s%n", LOG_PREFIX, required);
+                          LOGGER.warning(build.getFullDisplayName() + " failed to lock " + required);
+                        }
                     }
                 }
             }
@@ -99,7 +103,7 @@ public class LockRunListener extends RunListener<Run<?, ?>> {
         if (build instanceof MatrixBuild) return;
 
         LockableResourcesManager lrm = LockableResourcesManager.get();
-        synchronized (lrm.syncResources) {
+        //synchronized (lrm.syncResources) {
             // obviously project name cannot be obtained here
             List<LockableResource> required = lrm.getResourcesFromBuild(build);
             if (!required.isEmpty()) {
@@ -110,7 +114,7 @@ public class LockRunListener extends RunListener<Run<?, ?>> {
                         + required
                         + ", because the build has been finished.");
             }
-        }
+        //}
     }
 
     @Override

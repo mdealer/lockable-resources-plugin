@@ -66,7 +66,9 @@ public class LockableResourcesQueueTaskDispatcher extends QueueTaskDispatcher {
             resourceNumber = 0;
         }
 
-        LOGGER.finest(project.getName() + " trying to get resources with these details: " + resources);
+        if (LOGGER.isLoggable(Level.FINEST)) {
+          LOGGER.finest(project.getName() + " trying to get resources with these details: " + resources);
+        }
 
         if (resourceNumber > 0 || !resources.label.isEmpty() || resources.getResourceMatchScript() != null) {
             Map<String, Object> params = new HashMap<>();
@@ -121,19 +123,19 @@ public class LockableResourcesQueueTaskDispatcher extends QueueTaskDispatcher {
             }
 
             if (selected != null) {
-                LOGGER.finest(project.getName() + " reserved resources " + selected);
+                //LOGGER.finest(project.getName() + " reserved resources " + selected);
                 return null;
             } else {
-                LOGGER.finest(project.getName() + " waiting for resources");
+                //LOGGER.finest(project.getName() + " waiting for resources");
                 return new BecauseResourcesLocked(resources);
             }
 
         } else {
             if (LockableResourcesManager.get().queue(resources.required, item.getId(), project.getFullDisplayName())) {
-                LOGGER.finest(project.getName() + " reserved resources " + resources.required);
+                //LOGGER.finest(project.getName() + " reserved resources " + resources.required);
                 return null;
             } else {
-                LOGGER.finest(project.getName() + " waiting for resources " + resources.required);
+                //LOGGER.finest(project.getName() + " waiting for resources " + resources.required);
                 return new BecauseResourcesLocked(resources);
             }
         }

@@ -529,10 +529,11 @@ public class LockableResourcesManager extends GlobalConfiguration {
             }
 
             if (selected.size() != required_amount) {
-                log.log(
-                        Level.FINEST,
-                        "{0} found {1} resource(s) to queue." + "Waiting for correct amount: {2}.",
-                        new Object[] {queueItemProject, selected.size(), required_amount});
+            	if (log.isLoggable(Level.FINEST)) {
+                	log.log(Level.FINEST,
+	                        "{0} found {1} resource(s) to queue." + "Waiting for correct amount: {2}.",
+	                        new Object[] {queueItemProject, selected.size(), required_amount});
+	            }
                 // just to be sure, clean up
                 for (LockableResource x : this.resources) {
                     if (x.getQueueItemProject() != null
@@ -562,10 +563,11 @@ public class LockableResourcesManager extends GlobalConfiguration {
                     selected.add(r);
                 } else {
                     // The project has another buildable item waiting -> bail out
-                    log.log(
-                            Level.FINEST,
-                            "{0} has another build that already queued resource {1}. Continue queueing.",
-                            new Object[] {project, r});
+                    if (log.isLoggable(Level.FINEST)) {
+	                    log.log(Level.FINEST,
+	                            "{0} has another build that already queued resource {1}. Continue queueing.",
+	                            new Object[] {project, r});
+                    }
                     return false;
                 }
             }
@@ -574,13 +576,6 @@ public class LockableResourcesManager extends GlobalConfiguration {
     }
 
     // ---------------------------------------------------------------------------
-    @Deprecated
-    public boolean lock(List<LockableResource> resources, Run<?, ?> build, @Nullable StepContext context) {
-        return this.lock(resources, build);
-    }
-
-    // ---------------------------------------------------------------------------
-    @Deprecated
     public boolean lock(
             List<LockableResource> resources,
             Run<?, ?> build,
@@ -588,23 +583,30 @@ public class LockableResourcesManager extends GlobalConfiguration {
             @Nullable String logmessage,
             final String variable,
             boolean inversePrecedence) {
-        return this.lock(resources, build);
+        return this.lock(resources, build, context);
     }
-
+    public boolean lock(List<LockableResource> resources, Run<?, ?> build) {
+        return this.lock(resources, build, null);
+    }
     // ---------------------------------------------------------------------------
     /** Try to lock the resource and return true if locked. */
-    public boolean lock(List<LockableResource> resources, Run<?, ?> build) {
-
-        LOGGER.fine("lock it: " + resources + " for build " + build);
+    public boolean lock(List<LockableResource> resources, Run<?, ?> build, @Nullable StepContext context) {
+        if (LOGGER.isLoggable(Level.FINE)) {
+            LOGGER.fine("lock it: " + resources + " for build " + build);
+        }
 
         if (build == null) {
-            LOGGER.warning("lock() will fails, because the build does not exits. " + resources);
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.warning("lock() will fails, because the build does not exits. " + resources);
+            }
             return false; // not locked
         }
 
         String cause = getCauses(resources);
         if (!cause.isEmpty()) {
-            LOGGER.warning("lock() for build " + build + " will fails, because " + cause);
+            if (LOGGER.isLoggable(Level.FINE)) {
+                LOGGER.warning("lock() for build " + build + " will fails, because " + cause);
+            }
             return false; // not locked
         }
 
@@ -613,15 +615,16 @@ public class LockableResourcesManager extends GlobalConfiguration {
             r.setBuild(build);
         }
 
-        save(null);
+        save(context);
 
         return true;
     }
 
     // ---------------------------------------------------------------------------
     private void freeResources(List<LockableResource> unlockResources, @Nullable Run<?, ?> build) {
-
-        LOGGER.fine("free it: " + unlockResources);
+        if (LOGGER.isLoggable(Level.FINE)) {
+            LOGGER.fine("free it: " + unlockResources);
+        }
 
         // make sure there is a list of resource names to unlock
         if (unlockResources == null || unlockResources.isEmpty()) {
@@ -639,7 +642,9 @@ public class LockableResourcesManager extends GlobalConfiguration {
             uncacheIfFreeing(resource, true, false);
 
             if (resource.isEphemeral()) {
-                LOGGER.fine("Remove ephemeral resource: " + resource);
+                if (LOGGER.isLoggable(Level.FINE)) {
+                    LOGGER.fine("Remove ephemeral resource: " + resource);
+                }
                 toBeRemoved.add(resource);
             }
         }
@@ -694,7 +699,9 @@ public class LockableResourcesManager extends GlobalConfiguration {
       try {
         FlowNode fn = c.get(FlowNode.class);
         if (fn == null) {
-          LOGGER.log(Level.WARNING, "Failed to determine durability hint; no FlowNode.");
+          if (LOGGER.isLoggable(Level.FINE)) {
+            LOGGER.log(Level.WARNING, "Failed to determine durability hint; no FlowNode.");
+          }
         }
         if (fn != null && fn.getExecution().getDurabilityHint() == FlowDurabilityHint.PERFORMANCE_OPTIMIZED)
         {
@@ -708,16 +715,24 @@ public class LockableResourcesManager extends GlobalConfiguration {
   }
   private boolean proceedNextContext() {
     QueuedContextStruct nextContext = this.getNextQueuedContext();
-    LOGGER.finest("nextContext: " + nextContext);
+    if (LOGGER.isLoggable(Level.FINEST)) {
+      LOGGER.finest("nextContext: " + nextContext);
+    }
     // no context is queued which can be started once these resources are free'd.
     if (nextContext == null) {
-      LOGGER.fine("No context is queued which can be started once these resources are free'd.");
+      if (LOGGER.isLoggable(Level.FINE)) {
+        LOGGER.fine("No context is queued which can be started once these resources are freed.");
+      }
       return false;
     }
-    LOGGER.finest("nextContext candidates: " + nextContext.candidates);
+    if (LOGGER.isLoggable(Level.FINEST)) {
+      LOGGER.finest("nextContext candidates: " + nextContext.candidates);
+    }
     List<LockableResource> requiredResourceForNextContext =
       this.fromNames(nextContext.candidates, /*create un-existent resources */ true);
-    LOGGER.finest("nextContext real candidates: " + requiredResourceForNextContext);
+    if (LOGGER.isLoggable(Level.FINEST)) {
+      LOGGER.finest("nextContext real candidates: " + requiredResourceForNextContext);
+    }
     // remove context from queue and process it
 
     Run<?, ?> build = nextContext.getBuild();
@@ -725,13 +740,17 @@ public class LockableResourcesManager extends GlobalConfiguration {
       // this shall never happens
       // skip this context, as the build cannot be retrieved (maybe it was deleted while
       // running?)
-      LOGGER.warning("Skip this context, as the build cannot be retrieved");
+      if (LOGGER.isLoggable(Level.FINE)) {
+        LOGGER.warning("Skip this context, as the build cannot be retrieved");
+      }
       return true;
     }
     boolean locked = this.lock(requiredResourceForNextContext, build);
     if (!locked) {
       // defensive line, shall never happens
-      LOGGER.warning("Can not lock resources: " + requiredResourceForNextContext);
+      if (LOGGER.isLoggable(Level.FINE)) {
+        LOGGER.warning("Cannot lock resources: " + requiredResourceForNextContext);
+      }
       // to eliminate possible endless loop
       return false;
     }
@@ -783,8 +802,10 @@ public class LockableResourcesManager extends GlobalConfiguration {
     @CheckForNull
     private QueuedContextStruct getNextQueuedContext() {
 
-        LOGGER.fine("current queue size: " + this.queuedContexts.size());
-        LOGGER.finest("current queue: " + this.queuedContexts);
+        if (LOGGER.isLoggable(Level.FINE)) {
+            LOGGER.fine("current queue size: " + this.queuedContexts.size());
+            LOGGER.finest("current queue: " + this.queuedContexts);
+        }
         List<QueuedContextStruct> orphan = new ArrayList<>();
         QueuedContextStruct nextEntry = null;
 
@@ -794,11 +815,15 @@ public class LockableResourcesManager extends GlobalConfiguration {
             QueuedContextStruct entry = this.queuedContexts.get(idx);
             // check queue list first
             if (!entry.isValid()) {
-                LOGGER.fine("well be removed: " + idx + " " + entry);
+                if (LOGGER.isLoggable(Level.FINE)) {
+                  LOGGER.fine("well be removed: " + idx + " " + entry);
+                }
                 orphan.add(entry);
                 continue;
             }
-            LOGGER.finest("oldest win - index: " + idx + " " + entry);
+            if (LOGGER.isLoggable(Level.FINEST)) {
+              LOGGER.finest("oldest win - index: " + idx + " " + entry);
+            }
 
             nextEntry = getNextQueuedContextEntry(entry);
         }
@@ -818,7 +843,9 @@ public class LockableResourcesManager extends GlobalConfiguration {
         }
 
         entry.candidates = getResourcesNames(candidates);
-        LOGGER.fine("take this: " + entry);
+        if (LOGGER.isLoggable(Level.FINE)) {
+          LOGGER.fine("take this: " + entry);
+        }
         return entry;
     }
 
@@ -889,11 +916,15 @@ public class LockableResourcesManager extends GlobalConfiguration {
         }
         synchronized (this.syncResources) {
             if (this.resourceExist(resource.getName())) {
-                LOGGER.finest("We will add existing resource: " + resource + getStack());
+                if (LOGGER.isLoggable(Level.FINEST)) {
+                  LOGGER.finest("We will add existing resource: " + resource + getStack());
+                }
                 return false;
             }
             this.resources.add(resource);
-            LOGGER.fine("Resource added : " + resource);
+            if (LOGGER.isLoggable(Level.FINE)) {
+              LOGGER.fine("Resource added : " + resource);
+            }
             if (doSave) {
                 this.save();
             }
@@ -980,7 +1011,9 @@ public class LockableResourcesManager extends GlobalConfiguration {
         }
 
         synchronized (this.syncResources) {
-            LOGGER.fine("unreserve " + resources);
+            if (LOGGER.isLoggable(Level.FINE)) {
+              LOGGER.fine("unreserve " + resources);
+            }
             unreserveResources(resources);
 
             proceedNextContext();
@@ -1114,7 +1147,9 @@ public class LockableResourcesManager extends GlobalConfiguration {
             final @Nullable PrintStream logger,
             final @Nullable ResourceSelectStrategy selectStrategy) {
 
-        LOGGER.finest("getAvailableResources, " + requiredResourcesList);
+        if (LOGGER.isLoggable(Level.FINEST)) {
+          LOGGER.finest("getAvailableResources, " + requiredResourcesList);
+        }
         List<LockableResource> candidates = new ArrayList<>();
         for (LockableResourcesStruct requiredResources : requiredResourcesList) {
             List<LockableResource> available = new ArrayList<>();
@@ -1149,7 +1184,9 @@ public class LockableResourcesManager extends GlobalConfiguration {
             }
 
             if (available == null || available.isEmpty()) {
-                LOGGER.finest("No available resources found " + requiredResourcesList);
+                if (LOGGER.isLoggable(Level.FINEST)) {
+                  LOGGER.finest("No available resources found " + requiredResourcesList);
+                }
                 return null;
             }
 
@@ -1184,7 +1221,6 @@ public class LockableResourcesManager extends GlobalConfiguration {
     // ---------------------------------------------------------------------------
     public static void printLogs(final String msg, final Level level, Logger L, final @Nullable PrintStream logger) {
         L.log(level, msg);
-
         if (logger != null) {
             if (level == Level.WARNING || level == Level.SEVERE) logger.println(level.getLocalizedName() + ": " + msg);
             else logger.println(msg);
@@ -1296,7 +1332,9 @@ public class LockableResourcesManager extends GlobalConfiguration {
 
             for (LockableResourcesStruct _struct : entry.getResources()) {
                 if (_struct.isResourceRequired(resource)) {
-                    LOGGER.fine("found " + resource + " " + count);
+                    if (LOGGER.isLoggable(Level.FINE)) {
+                      LOGGER.fine("found " + resource + " " + count);
+                    }
                     count++;
                     break;
                 }
@@ -1371,11 +1409,12 @@ public class LockableResourcesManager extends GlobalConfiguration {
             }
 
             this.queuedContexts.add(queueIndex, newQueueItem);
-            printLogs(
-                    requiredResources + " added into queue at position " + queueIndex,
-                    newQueueItem.getLogger(),
-                    Level.FINE);
-
+            if (LOGGER.isLoggable(Level.FINE)) {
+              printLogs(
+                      requiredResources + " added into queue at position " + queueIndex,
+                      newQueueItem.getLogger(),
+                      Level.FINE);
+            }
             save(context);
         }
     }
@@ -1418,8 +1457,10 @@ public class LockableResourcesManager extends GlobalConfiguration {
         synchronized (this.syncResources) {
             if (BulkChange.contains(this)) return;
             try {
-      LOGGER.log(Level.FINE, "Saving lockable resources. Previous save was " + (System.currentTimeMillis() - lastSaveMs) + " ms ago." );
-      lastSaveMs = System.currentTimeMillis();
+                if (LOGGER.isLoggable(Level.FINE)) {
+                  LOGGER.log(Level.FINE, "Saving lockable resources. Previous save was " + (System.currentTimeMillis() - lastSaveMs) + " ms ago." );
+                }
+                lastSaveMs = System.currentTimeMillis();
                 getConfigFile().write(this);
             } catch (IOException e) {
                 LOGGER.log(Level.WARNING, "Failed to save " + getConfigFile(), e);
