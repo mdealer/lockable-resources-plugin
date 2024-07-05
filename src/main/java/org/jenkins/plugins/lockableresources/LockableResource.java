@@ -56,7 +56,7 @@ import org.kohsuke.stapler.export.ExportedBean;
 @ExportedBean(defaultVisibility = 999)
 public class LockableResource extends AbstractDescribableImpl<LockableResource> implements Serializable {
 
-    private static final Logger LOGGER = Logger.getLogger(LockableResource.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
     public static final int NOT_QUEUED = 0;
     private static final int QUEUE_TIMEOUT = 60;
     public static final String GROOVY_LABEL_MARKER = "groovy:";

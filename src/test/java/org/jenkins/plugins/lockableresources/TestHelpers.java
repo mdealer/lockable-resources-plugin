@@ -26,7 +26,7 @@ import org.mockito.MockitoAnnotations;
 
 public final class TestHelpers {
 
-    private static final Logger LOGGER = Logger.getLogger(TestHelpers.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
 
     private static final int SLEEP_TIME = 100;
     private static final int MAX_WAIT = 5000;

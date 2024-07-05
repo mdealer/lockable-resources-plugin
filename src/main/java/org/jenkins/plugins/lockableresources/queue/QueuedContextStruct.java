@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.jenkinsci.plugins.workflow.steps.StepContext;
+import org.jenkins.plugins.lockableresources.LockableResourcesManager;import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 
@@ -54,7 +54,7 @@ public class QueuedContextStruct implements Serializable {
     // cached candidates
     public transient List<String> candidates = null;
 
-    private static final Logger LOGGER = Logger.getLogger(QueuedContextStruct.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
 
     private String id = null;
 

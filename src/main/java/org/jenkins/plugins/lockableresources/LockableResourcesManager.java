@@ -62,7 +62,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
     private List<LockableResource> resources;
     private transient Cache<Long, List<LockableResource>> cachedCandidates =
             CacheBuilder.newBuilder().expireAfterWrite(5, TimeUnit.MINUTES).build();
-    private static final Logger LOGGER = Logger.getLogger(LockableResourcesManager.class.getName());
+    public static final Logger LOGGER = Logger.getLogger(LockableResourcesManager.class.getName());
     private transient long lastSaveMs;
 
     /**
@@ -87,6 +87,11 @@ public class LockableResourcesManager extends GlobalConfiguration {
     public LockableResourcesManager() {
         resources = new ArrayList<>();
         load();
+    }
+
+    public void SetupForTests() {
+      LOGGER.setLevel(Level.FINEST);
+      //LockStepExecution.LOGGER.setLevel();
     }
 
     // ---------------------------------------------------------------------------
@@ -341,19 +346,19 @@ public class LockableResourcesManager extends GlobalConfiguration {
     // ---------------------------------------------------------------------------
     @Restricted(NoExternalUse.class)
     public List<LockableResource> fromNames(@Nullable final List<String> names) {
-        if (names == null) {
-            return null;
-        }
-        return fromNames(names, false);
+        return fromNames(names, false, null);
     }
 
     // ---------------------------------------------------------------------------
     @Restricted(NoExternalUse.class)
-    public List<LockableResource> fromNames(final List<String> names, final boolean createResource) {
+    public List<LockableResource> fromNames(final List<String> names, final boolean createResource, StepContext context) {
+        if (names == null) {
+            return null;
+        }
         List<LockableResource> list = new ArrayList<>();
         for (String name : names) {
             // be sure it exists
-            if (createResource) this.createResource(name);
+            if (createResource) this.createResource(name, context);
             LockableResource r = this.fromName(name);
             if (r != null) // this is probably bug, but nobody know
             list.add(r);
@@ -684,9 +689,9 @@ public class LockableResourcesManager extends GlobalConfiguration {
     }
 
     synchronized (this.syncResources) {
-      this.freeResources(this.fromNames(resourceNamesToUnLock), build);
+      this.freeResources(this.fromNames(resourceNamesToUnLock, false, context), build);
 
-      while (proceedNextContext()) {
+      while (proceedNextContext(context)) {
         // process as many contexts as possible
       }
 
@@ -713,8 +718,8 @@ public class LockableResourcesManager extends GlobalConfiguration {
     }
     return false;
   }
-  private boolean proceedNextContext() {
-    QueuedContextStruct nextContext = this.getNextQueuedContext();
+  private boolean proceedNextContext(StepContext context) {
+    QueuedContextStruct nextContext = this.getNextQueuedContext(context);
     if (LOGGER.isLoggable(Level.FINEST)) {
       LOGGER.finest("nextContext: " + nextContext);
     }
@@ -729,7 +734,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
       LOGGER.finest("nextContext candidates: " + nextContext.candidates);
     }
     List<LockableResource> requiredResourceForNextContext =
-      this.fromNames(nextContext.candidates, /*create un-existent resources */ true);
+      this.fromNames(nextContext.candidates, /*create un-existent resources */ true, nextContext.getContext());
     if (LOGGER.isLoggable(Level.FINEST)) {
       LOGGER.finest("nextContext real candidates: " + requiredResourceForNextContext);
     }
@@ -745,7 +750,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
       }
       return true;
     }
-    boolean locked = this.lock(requiredResourceForNextContext, build);
+    boolean locked = this.lock(requiredResourceForNextContext, build, context);
     if (!locked) {
       // defensive line, shall never happens
       if (LOGGER.isLoggable(Level.FINE)) {
@@ -800,7 +805,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
      *
      */
     @CheckForNull
-    private QueuedContextStruct getNextQueuedContext() {
+    private QueuedContextStruct getNextQueuedContext(StepContext context) {
 
         if (LOGGER.isLoggable(Level.FINE)) {
             LOGGER.fine("current queue size: " + this.queuedContexts.size());
@@ -825,7 +830,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
               LOGGER.finest("oldest win - index: " + idx + " " + entry);
             }
 
-            nextEntry = getNextQueuedContextEntry(entry);
+            nextEntry = getNextQueuedContextEntry(entry, context);
         }
 
         if (!orphan.isEmpty()) {
@@ -836,8 +841,8 @@ public class LockableResourcesManager extends GlobalConfiguration {
     }
 
     // ---------------------------------------------------------------------------
-    QueuedContextStruct getNextQueuedContextEntry(QueuedContextStruct entry) {
-        List<LockableResource> candidates = this.getAvailableResources(entry.getResources());
+    QueuedContextStruct getNextQueuedContextEntry(QueuedContextStruct entry, StepContext context) {
+        List<LockableResource> candidates = this.getAvailableResources(entry.getResources(), entry.getLogger(), null, context);
         if (candidates == null || candidates.isEmpty()) {
             return null;
         }
@@ -860,12 +865,17 @@ public class LockableResourcesManager extends GlobalConfiguration {
 
     // ---------------------------------------------------------------------------
     /** Creates the resource if it does not exist. */
-    public boolean createResource(@CheckForNull String name) {
+    public boolean createResource(@CheckForNull String name, StepContext context) {
         name = Util.fixEmptyAndTrim(name);
         LockableResource resource = new LockableResource(name);
         resource.setEphemeral(true);
 
-        return this.addResource(resource, /*doSave*/ true);
+        return this.addResource(resource, /*doSave*/ true, context);
+    }
+
+    /** Creates the resource if it does not exist. */
+    public boolean createResource(@CheckForNull String name) {
+        return createResource(name, null);
     }
 
     // ---------------------------------------------------------------------------
@@ -875,7 +885,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
         LockableResource resource = new LockableResource(name);
         resource.setLabels(label);
 
-        return this.addResource(resource, /*doSave*/ true);
+        return this.addResource(resource, /*doSave*/ true, null);
     }
 
     // ---------------------------------------------------------------------------
@@ -898,17 +908,17 @@ public class LockableResourcesManager extends GlobalConfiguration {
                 })
                 .collect(Collectors.toList()));
 
-        return this.addResource(resource, /*doSave*/ true);
+        return this.addResource(resource, /*doSave*/ true, null);
     }
 
     // ---------------------------------------------------------------------------
     @Restricted(NoExternalUse.class)
     public boolean addResource(@Nullable final LockableResource resource) {
-        return this.addResource(resource, /*doSave*/ false);
+        return this.addResource(resource, /*doSave*/ false, null);
     }
     // ---------------------------------------------------------------------------
     @Restricted(NoExternalUse.class)
-    public boolean addResource(@Nullable final LockableResource resource, final boolean doSave) {
+    public boolean addResource(@Nullable final LockableResource resource, final boolean doSave, StepContext context) {
 
         if (resource == null || resource.getName() == null || resource.getName().isEmpty()) {
             LOGGER.warning("Internal failure: We will add wrong resource: '" + resource + "' " + getStack());
@@ -926,7 +936,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
               LOGGER.fine("Resource added : " + resource);
             }
             if (doSave) {
-                this.save();
+                this.save(context);
             }
         }
         return true;
@@ -1016,7 +1026,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
             }
             unreserveResources(resources);
 
-            proceedNextContext();
+            proceedNextContext(null);
 
             save(null);
         }
@@ -1120,12 +1130,12 @@ public class LockableResourcesManager extends GlobalConfiguration {
 
     // ---------------------------------------------------------------------------
     public List<LockableResource> getAvailableResources(final List<LockableResourcesStruct> requiredResourcesList) {
-        return this.getAvailableResources(requiredResourcesList, null, null);
+        return this.getAvailableResources(requiredResourcesList, null, null, null);
     }
 
     // ---------------------------------------------------------------------------
     public List<LockableResource> getAvailableResources(final QueuedContextStruct entry) {
-        return this.getAvailableResources(entry.getResources(), entry.getLogger(), null);
+        return this.getAvailableResources(entry.getResources(), entry.getLogger(), null, null);
     }
 
     // ---------------------------------------------------------------------------
@@ -1145,7 +1155,8 @@ public class LockableResourcesManager extends GlobalConfiguration {
     public List<LockableResource> getAvailableResources(
             final List<LockableResourcesStruct> requiredResourcesList,
             final @Nullable PrintStream logger,
-            final @Nullable ResourceSelectStrategy selectStrategy) {
+            final @Nullable ResourceSelectStrategy selectStrategy,
+            StepContext context) {
 
         if (LOGGER.isLoggable(Level.FINEST)) {
           LOGGER.finest("getAvailableResources, " + requiredResourcesList);
@@ -1174,7 +1185,7 @@ public class LockableResourcesManager extends GlobalConfiguration {
                 // all of them in LRM
                 // fromNames() also re-create the resource (ephemeral things)
                 available = fromNames(
-                        getResourcesNames(requiredResources.required), /*create un-existent resources */ true);
+                        getResourcesNames(requiredResources.required), /*create un-existent resources */ true, context);
 
                 if (!this.areAllAvailable(available)) {
                     available = null;

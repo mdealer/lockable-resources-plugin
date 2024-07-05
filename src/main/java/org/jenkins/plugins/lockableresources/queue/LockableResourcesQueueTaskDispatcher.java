@@ -40,7 +40,7 @@ public class LockableResourcesQueueTaskDispatcher extends QueueTaskDispatcher {
     private transient Cache<Long, Date> lastLogged =
             Caffeine.newBuilder().expireAfterWrite(30, TimeUnit.MINUTES).build();
 
-    static final Logger LOGGER = Logger.getLogger(LockableResourcesQueueTaskDispatcher.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
 
     @Override
     public CauseOfBlockage canRun(Queue.Item item) {

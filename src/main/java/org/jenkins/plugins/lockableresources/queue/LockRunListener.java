@@ -31,7 +31,7 @@ import org.jenkins.plugins.lockableresources.actions.ResourceVariableNameAction;
 public class LockRunListener extends RunListener<Run<?, ?>> {
 
     static final String LOG_PREFIX = "[lockable-resources]";
-    static final Logger LOGGER = Logger.getLogger(LockRunListener.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
 
     @Override
     public void onStarted(Run<?, ?> build, TaskListener listener) {

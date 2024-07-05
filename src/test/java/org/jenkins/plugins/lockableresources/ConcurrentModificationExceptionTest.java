@@ -14,7 +14,7 @@ import org.jvnet.hudson.test.JenkinsRule;
 
 public class ConcurrentModificationExceptionTest {
 
-    private static final Logger LOGGER = Logger.getLogger(ConcurrentModificationExceptionTest.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
 
     @Rule
     public final JenkinsRule j = new JenkinsRule();

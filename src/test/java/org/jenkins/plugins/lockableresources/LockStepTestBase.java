@@ -7,10 +7,13 @@ import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.actions.PauseAction;
 import org.junit.ClassRule;
-import org.jvnet.hudson.test.BuildWatcher;
+import org.jvnet.hudson.test.BuildWatcher;import java.util.logging.Level;
 
 public class LockStepTestBase {
 
+    public LockStepTestBase() {
+        LockableResourcesManager.LOGGER.setLevel(Level.FINEST);
+    }
     @ClassRule
     public static BuildWatcher buildWatcher = new BuildWatcher();
 

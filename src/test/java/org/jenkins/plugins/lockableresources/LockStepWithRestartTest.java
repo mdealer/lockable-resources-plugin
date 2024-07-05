@@ -18,7 +18,7 @@ import org.jvnet.hudson.test.JenkinsSessionRule;
 
 public class LockStepWithRestartTest extends LockStepTestBase {
 
-    private static final Logger LOGGER = Logger.getLogger(LockStepTestBase.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
 
     @Rule
     public JenkinsSessionRule sessions = new JenkinsSessionRule();

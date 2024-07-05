@@ -30,7 +30,7 @@ public class LockStepExecution extends AbstractStepExecutionImpl implements Seri
 
     private static final long serialVersionUID = 1391734561272059623L;
 
-    private static final Logger LOGGER = Logger.getLogger(LockStepExecution.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
 
     private final LockStep step;
 
@@ -65,7 +65,7 @@ public class LockStepExecution extends AbstractStepExecutionImpl implements Seri
             for (LockStepResource resource : step.getResources()) {
                 List<String> resources = new ArrayList<>();
                 if (resource.resource != null) {
-                    if (lrm.createResource(resource.resource)) {
+                    if (lrm.createResource(resource.resource, context)) {
                         if (LOGGER.isLoggable(Level.FINE)) {
                           LockableResourcesManager.printLogs(
                                 "Resource [" + resource.resource + "] did not exist. Created.",
@@ -80,7 +80,7 @@ public class LockStepExecution extends AbstractStepExecutionImpl implements Seri
             }
 
             // determine if there are enough resources available to proceed
-            available = lrm.getAvailableResources(resourceHolderList, logger, resourceSelectStrategy);
+            available = lrm.getAvailableResources(resourceHolderList, logger, resourceSelectStrategy, context);
             if (available == null || available.isEmpty()) {
                 if (LOGGER.isLoggable(Level.FINE)) {
                     LOGGER.fine("No available resources: " + available);
@@ -117,14 +117,14 @@ public class LockStepExecution extends AbstractStepExecutionImpl implements Seri
     private void onLockFailed(PrintStream logger, List<LockableResourcesStruct> resourceHolderList) {
 
         if (step.skipIfLocked) {
-            this.printBlockCause(logger, resourceHolderList);
+            this.printBlockCause(logger, resourceHolderList, getContext());
             if (LOGGER.isLoggable(Level.FINE)) {
               LockableResourcesManager.printLogs(
                     "[" + step + "] is not free, skipping execution ...", Level.FINE, LOGGER, logger);
             }
             getContext().onSuccess(null);
         } else {
-            this.printBlockCause(logger, resourceHolderList);
+            this.printBlockCause(logger, resourceHolderList, getContext());
             if (LOGGER.isLoggable(Level.FINE)) {
               LockableResourcesManager.printLogs(
                     "[" + step + "] is not free, waiting for execution ...", Level.FINE, LOGGER, logger);
@@ -140,7 +140,7 @@ public class LockStepExecution extends AbstractStepExecutionImpl implements Seri
         }
     }
 
-    private void printBlockCause(PrintStream logger, List<LockableResourcesStruct> resourceHolderList) {
+    private void printBlockCause(PrintStream logger, List<LockableResourcesStruct> resourceHolderList, StepContext context) {
         LockableResourcesManager lrm = LockableResourcesManager.get();
         LockableResource resource = this.step.resource != null ? lrm.fromName(this.step.resource) : null;
 
@@ -150,7 +150,7 @@ public class LockStepExecution extends AbstractStepExecutionImpl implements Seri
                 LockableResourcesManager.printLogs(logMessage, Level.FINE, LOGGER, logger);
         } else {
             // looks like ordered by label
-            lrm.getAvailableResources(resourceHolderList, logger, null);
+            lrm.getAvailableResources(resourceHolderList, logger, null, context);
         }
     }
 

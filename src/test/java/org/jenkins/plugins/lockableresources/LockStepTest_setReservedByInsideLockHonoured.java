@@ -10,8 +10,7 @@ import org.jvnet.hudson.test.JenkinsRule;
 
 public class LockStepTest_setReservedByInsideLockHonoured extends LockStepTestBase {
 
-    private static final Logger LOGGER = Logger.getLogger(LockStepTest_setReservedByInsideLockHonoured.class.getName());
-
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
     @Rule
     public JenkinsRule j = new JenkinsRule();
 

@@ -19,7 +19,7 @@ import org.jvnet.hudson.test.TestBuilder;
 
 public class InteroperabilityTest extends LockStepTestBase {
 
-    private static final Logger LOGGER = Logger.getLogger(InteroperabilityTest.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
     // ---------------------------------------------------------------------------
     @Before
     public void setUp() {

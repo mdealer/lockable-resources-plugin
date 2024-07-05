@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CyclicBarrier;
-import java.util.logging.Logger;
+import java.util.logging.Level;import java.util.logging.LogManager;import java.util.logging.Logger;
 import net.sf.json.JSONObject;
 import org.jenkins.plugins.lockableresources.util.Constants;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -28,7 +28,7 @@ import org.jvnet.hudson.test.recipes.WithPlugin;
 
 public class LockStepTest extends LockStepTestBase {
 
-    private static final Logger LOGGER = Logger.getLogger(LockStepTest.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
 
     @Rule
     public JenkinsRule j = new JenkinsRule();

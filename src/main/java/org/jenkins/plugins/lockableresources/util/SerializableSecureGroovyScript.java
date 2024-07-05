@@ -33,7 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript;
+import org.jenkins.plugins.lockableresources.LockableResourcesManager;import org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ClasspathEntry;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.kohsuke.accmod.Restricted;
@@ -57,7 +57,7 @@ public class SerializableSecureGroovyScript implements Serializable {
     @Nullable
     private final ArrayList<SerializableClassPathEntry> classPathEntries;
 
-    private static final Logger LOGGER = Logger.getLogger(SerializableSecureGroovyScript.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
 
     public SerializableSecureGroovyScript(@CheckForNull SecureGroovyScript secureScript) {
         if (secureScript == null) {

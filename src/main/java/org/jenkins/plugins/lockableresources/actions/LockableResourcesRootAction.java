@@ -46,7 +46,7 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 @ExportedBean
 public class LockableResourcesRootAction implements RootAction {
 
-    private static final Logger LOGGER = Logger.getLogger(LockableResourcesRootAction.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
 
     public static final PermissionGroup PERMISSIONS_GROUP = new PermissionGroup(
             LockableResourcesManager.class, Messages._LockableResourcesRootAction_PermissionGroup());

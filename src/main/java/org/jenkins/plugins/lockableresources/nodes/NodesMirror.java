@@ -17,7 +17,7 @@ import org.jenkins.plugins.lockableresources.util.Constants;
 @Extension
 public class NodesMirror extends ComputerListener {
 
-    private static final Logger LOGGER = Logger.getLogger(NodesMirror.class.getName());
+    private static final Logger LOGGER = LockableResourcesManager.LOGGER;
     private static LockableResourcesManager lrm;
 
     // ---------------------------------------------------------------------------
